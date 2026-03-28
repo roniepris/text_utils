@@ -29,7 +29,7 @@ jobs:
 
       - run: |
           source .venv/bin/activate
-          pip install pytest build
+          pip install pytest build -e
 
       - run: |
           source .venv/bin/activate
