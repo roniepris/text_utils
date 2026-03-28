@@ -10,6 +10,7 @@ on:
 
 jobs:
   test:
+    name: Testes (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
 
     strategy:
@@ -18,62 +19,92 @@ jobs:
         python-version: ["3.10", "3.11", "3.12"]
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout código
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Configurar Python
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
 
-      - run: python -m venv .venv
+      - name: Criar ambiente virtual
+        run: python -m venv .venv
 
-      - run: |
+      - name: Instalar dependências
+        run: |
           source .venv/bin/activate
-          pip install pytest build -e .
+          python -m pip install --upgrade pip
+          pip install pytest build
+          pip install -e .
 
-      - run: |
+      - name: Rodar testes
+        run: |
           source .venv/bin/activate
           pytest
 
   build:
+    name: Build pacote
     needs: test
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout código
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Configurar Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: "pip"
 
-      - run: python -m venv .venv
+      - name: Criar ambiente virtual
+        run: python -m venv .venv
 
-      - run: |
+      - name: Instalar dependências
+        run: |
           source .venv/bin/activate
-          pip install build
+          python -m pip install --upgrade pip
+          pip install build twine
 
-      - run: |
+      - name: Gerar pacote
+        run: |
           source .venv/bin/activate
           python -m build
 
-      - uses: actions/upload-artifact@v4
+      - name: Verificar pacote
+        run: |
+          source .venv/bin/activate
+          twine check dist/*
+
+      - name: Listar arquivos gerados
+        run: ls -lh dist/
+
+      - name: Upload artefatos
+        uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
 
   publish:
+    name: Publicar no PyPI (Token)
     needs: build
     runs-on: ubuntu-latest
+
+    # Executa somente quando uma release é publicada
     if: github.event_name == 'release'
 
-    permissions:
-      id-token: write
-
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Baixar artefatos
+        uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
 
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Confirmar arquivos
+        run: ls -lh dist/
+
+      - name: Publicar no PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
